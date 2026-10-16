@@ -1,0 +1,499 @@
+{
+  "contractAddress": "0x23159fe3cfc953c9f4f57af3163176373a788858",
+  "network": "ARC-TESTNET",
+  "deployerWalletId": "3c2464b2-8369-52e2-a782-800bbeca5396",
+  "contract_code_path": "/home/user/app/contracts/Quincena.sol",
+  "contract_compiled_code_path": "/home/user/app/contracts/out/Quincena.sol/Quincena.json",
+  "contract_network_and_links": {
+    "Arc Testnet": "https://explorer.testnet.arc.io/address/0x23159fe3cfc953c9f4f57af3163176373a788858"
+  },
+  "contract_deployments": [
+    {
+      "chain": "Arc Testnet",
+      "address": "0x23159fe3cfc953c9f4f57af3163176373a788858",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0x23159fe3cfc953c9f4f57af3163176373a788858",
+      "txHash": "0xb7b1e8ff08c05f0f247c9a95a5155ee37070405555a281f9334f18776bbacd53",
+      "deployedAt": "2026-10-16T17:12:58.737Z"
+    },
+    {
+      "chain": "Arc Testnet",
+      "address": "0xfb57ed3d1b32345972295f7a837b4d122c9a5c41",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0xfb57ed3d1b32345972295f7a837b4d122c9a5c41",
+      "txHash": "0x43ce5099a075e080907da086f21699ebaa5e18310f4097b135f1bc167f8bd82f",
+      "deployedAt": "2026-10-16T16:45:10.613Z"
+    }
+  ],
+  "abi": [
+    {
+      "type": "constructor",
+      "inputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "USDC",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "contract IERC20"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "cancel",
+      "inputs": [
+        {
+          "name": "streamId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "claim",
+      "inputs": [
+        {
+          "name": "streamId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "claim",
+      "inputs": [
+        {
+          "name": "streamId",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "maxPeriods",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "claimable",
+      "inputs": [
+        {
+          "name": "streamId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "amount",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "numPeriods",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "createStream",
+      "inputs": [
+        {
+          "name": "payees",
+          "type": "address[]",
+          "internalType": "address[]"
+        },
+        {
+          "name": "bps",
+          "type": "uint16[]",
+          "internalType": "uint16[]"
+        },
+        {
+          "name": "amountPerPeriod",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "periodSeconds",
+          "type": "uint32",
+          "internalType": "uint32"
+        },
+        {
+          "name": "periods",
+          "type": "uint16",
+          "internalType": "uint16"
+        },
+        {
+          "name": "cancelNoticePeriods",
+          "type": "uint32",
+          "internalType": "uint32"
+        },
+        {
+          "name": "memo",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "getStream",
+      "inputs": [
+        {
+          "name": "streamId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct Quincena.Stream",
+          "components": [
+            {
+              "name": "client",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "payees",
+              "type": "address[]",
+              "internalType": "address[]"
+            },
+            {
+              "name": "bps",
+              "type": "uint16[]",
+              "internalType": "uint16[]"
+            },
+            {
+              "name": "amountPerPeriod",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "periodSeconds",
+              "type": "uint32",
+              "internalType": "uint32"
+            },
+            {
+              "name": "periods",
+              "type": "uint16",
+              "internalType": "uint16"
+            },
+            {
+              "name": "cancelNoticePeriods",
+              "type": "uint32",
+              "internalType": "uint32"
+            },
+            {
+              "name": "memo",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "startTime",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "periodsClaimedCount",
+              "type": "uint16",
+              "internalType": "uint16"
+            },
+            {
+              "name": "cancelled",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "cancelledAtPeriod",
+              "type": "uint16",
+              "internalType": "uint16"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "pendingWithdrawal",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "streamsOfClient",
+      "inputs": [
+        {
+          "name": "client",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256[]",
+          "internalType": "uint256[]"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "streamsOfPayee",
+      "inputs": [
+        {
+          "name": "payee",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256[]",
+          "internalType": "uint256[]"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "withdraw",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "event",
+      "name": "PeriodPaid",
+      "inputs": [
+        {
+          "name": "streamId",
+          "type": "uint256",
+          "indexed": true,
+          "internalType": "uint256"
+        },
+        {
+          "name": "periodIndex",
+          "type": "uint256",
+          "indexed": true,
+          "internalType": "uint256"
+        },
+        {
+          "name": "total",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "StreamCancelled",
+      "inputs": [
+        {
+          "name": "streamId",
+          "type": "uint256",
+          "indexed": true,
+          "internalType": "uint256"
+        },
+        {
+          "name": "cutoffPeriod",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "refundAmount",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "StreamCreated",
+      "inputs": [
+        {
+          "name": "streamId",
+          "type": "uint256",
+          "indexed": true,
+          "internalType": "uint256"
+        },
+        {
+          "name": "client",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amountPerPeriod",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "periods",
+          "type": "uint16",
+          "indexed": false,
+          "internalType": "uint16"
+        },
+        {
+          "name": "periodSeconds",
+          "type": "uint32",
+          "indexed": false,
+          "internalType": "uint32"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "Withdrawn",
+      "inputs": [
+        {
+          "name": "payee",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "error",
+      "name": "DuplicatePayee",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidAmountPerPeriod",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidArrayLengths",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidBpsTotal",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidPayeeCount",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidPeriodSeconds",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidPeriods",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotStreamClient",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NothingToWithdraw",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "PayeeIsClient",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "PeriodsTooHigh",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ReentrancyGuardReentrantCall",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "SafeERC20FailedOperation",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "StreamAlreadyCancelled",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "StreamNotFound",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "WrongChain",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ZeroAddressPayee",
+      "inputs": []
+    }
+  ]
+}
