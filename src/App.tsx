@@ -6,7 +6,7 @@ import { TokenUSDC } from '@web3icons/react'
 import { CreateStreamSheet } from './components/CreateStreamSheet'
 import { StreamCard } from './components/StreamCard'
 import { WithdrawCard } from './components/WithdrawCard'
-import { QUINCENA_ABI, ARC_TESTNET_CHAIN_ID, getQuincenaAddress, type StreamData } from './quincena'
+import { QUINCENA_ABI, ARC_TESTNET_CHAIN_ID, ARC_MAINNET_CHAIN_ID, getQuincenaAddress, type StreamData } from './quincena'
 import type { Lang } from './i18n'
 import { t } from './i18n'
 
@@ -54,6 +54,7 @@ export default function App() {
   const refresh = useCallback(() => setRefreshKey(k => k + 1), [])
 
   const activeChainId = chainId ?? ARC_TESTNET_CHAIN_ID
+  const isMainnet = activeChainId === ARC_MAINNET_CHAIN_ID
   const clientIds = useStreamIds(address, 'streamsOfClient', activeChainId)
   const payeeIds = useStreamIds(address, 'streamsOfPayee', activeChainId)
   const clientStreams = useStreams(clientIds, refreshKey, activeChainId)
@@ -81,10 +82,22 @@ export default function App() {
               <TokenUSDC size={18} variant="branded" />
             </div>
             <div>
-              <span className="display block text-xl font-bold leading-none" style={{ color: 'var(--ink)', letterSpacing: '-0.04em' }}>
-                Quincena
+              <div className="flex items-center gap-2 leading-none">
+                <span className="display text-xl font-bold" style={{ color: 'var(--ink)', letterSpacing: '-0.04em' }}>
+                  Quincena
+                </span>
+                {isMainnet && isConnected && (
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase"
+                    style={{ background: 'rgba(26,128,71,0.12)', color: 'var(--success)', border: '1px solid rgba(26,128,71,0.22)' }}
+                  >
+                    Mainnet
+                  </span>
+                )}
+              </div>
+              <span className="text-xs" style={{ color: 'var(--muted)' }}>
+                {isMainnet && isConnected ? 'Real USDC · Arc Mainnet' : t('appTagline', lang)}
               </span>
-              <span className="text-xs" style={{ color: 'var(--muted)' }}>{t('appTagline', lang)}</span>
             </div>
           </div>
 
@@ -138,6 +151,19 @@ export default function App() {
           </div>
         ) : (
           <>
+            {/* ── Mainnet real-funds notice ────────────────── */}
+            {isMainnet && (
+              <div
+                className="mb-4 flex items-start gap-2.5 rounded-2xl px-4 py-3"
+                style={{ background: 'rgba(26,128,71,0.07)', border: '1px solid rgba(26,128,71,0.18)' }}
+              >
+                <span className="mt-0.5 text-base leading-none">🟢</span>
+                <p className="text-xs leading-relaxed" style={{ color: '#1a5c33' }}>
+                  <span className="font-bold">Arc Mainnet — real USDC.</span> Streams on this network use actual funds. All transactions are irreversible.
+                </p>
+              </div>
+            )}
+
             {/* ── Withdraw card ───────────────────────────── */}
             <div className="mb-3">
               <WithdrawCard lang={lang} />

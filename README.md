@@ -68,11 +68,14 @@ Client                     Quincena.sol                   Payees
 
 ## Contract API
 
-**Deployed on Arc Testnet:**
+**Arc Mainnet:**
+`0x153ace52a2cfcffad92421d365af8e31cf494e68`
+[View on Arc Explorer](https://explorer.arc.io/address/0x153ace52a2cfcffad92421d365af8e31cf494e68) ·
+[Deploy tx](https://explorer.arc.io/tx/0x41e2973d27b3a7cc89600db5e5d171dedb200237ceb9a534cda718c98ddd99c4)
+
+**Arc Testnet:**
 `0x23159fe3cfc953c9f4f57af3163176373a788858`
 [View on Arc Testnet Explorer](https://explorer.testnet.arc.io/address/0x23159fe3cfc953c9f4f57af3163176373a788858)
-
-**Mainnet address:** `— not yet deployed —`
 
 ### Write functions
 
@@ -129,7 +132,7 @@ event Withdrawn(address indexed payee, uint256 amount);
 | Refund = `(periods − max(cutoffPeriod, periodsClaimedCount)) × amountPerPeriod` | Prevents over-refunding amounts already distributed to `pendingWithdrawal` |
 | `payees[i] != msg.sender` | Blocks client from listing themselves as payee to double-recover |
 | Duplicate payee check (O(n²), max 5 payees) | Prevents double-allocation to one address |
-| Arc Testnet chain-ID guard in constructor | Stops the bytecode being re-deployed on a chain where `0x3600…0000` is not USDC |
+| Chain-ID guard in constructor | Accepts Arc Testnet (5042002) and Arc Mainnet (5042) only — both chains share the same USDC address; reverts on any other chain |
 | Max 1 000 periods, bounded `claim(id, maxPeriods)` | Bounds gas per call; prevents stuck streams |
 
 ---
@@ -146,8 +149,8 @@ Two rounds of automated analysis + manual review before deployment:
 | Duplicate payee — double bps allocation to same address | Medium | Fixed |
 | Hardcoded USDC address — Arc-only by design; chain-ID guard added | Info | Acknowledged |
 
-**36 / 36 tests pass** including fuzz (256 runs), reentrancy attack simulation, and all
-cancellation orderings.
+**39 / 39 tests pass** including fuzz (256 runs), reentrancy attack simulation, all
+cancellation orderings, and both allowed chain IDs.
 
 ---
 
@@ -160,7 +163,7 @@ Compiled and tested with Foundry.
 
 ```bash
 forge build          # compile
-forge test -vv       # run all 36 tests
+forge test -vv       # run all 39 tests
 ```
 
 Two parallel security audits (rule-corpus + functional) were run on each iteration,
@@ -207,8 +210,9 @@ forge build          # compile contracts
 forge test -vv       # run tests
 ```
 
-Connect MetaMask to **Arc Testnet** (Chain ID 5042002) and get test USDC from the
-[Arc faucet](https://faucet.circle.com) or the **Get test USDC** button in Arc Studio.
+Connect MetaMask to **Arc Testnet** (Chain ID 5042002) for development and get test USDC
+from the **Get test USDC** button in Arc Studio. Switch to **Arc Mainnet** (Chain ID 5042)
+to use the production contract with real USDC.
 
 ---
 

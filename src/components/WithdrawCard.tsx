@@ -69,7 +69,7 @@ export function WithdrawCard({ lang }: Props) {
   }, [isSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleWithdraw = () => {
-    if (isWrongChain) { switchChain({ chainId: ARC_TESTNET_CHAIN_ID }); return }
+    if (isWrongChain) { switchChain({ chainId: activeChainId }); return }
     if (!contractAddress) return
     writeWithdraw({
       address: contractAddress,
@@ -77,7 +77,21 @@ export function WithdrawCard({ lang }: Props) {
       functionName: 'withdraw',
       args: [],
     }, {
-      onError: (e) => toast.error(e.message.includes('user rejected') ? t('txCancelled', lang) : t('withdrawFailed', lang)),
+      onError: (e) => {
+        const msg = e.message ?? ''
+        if (msg.includes('user rejected') || msg.includes('User rejected') || msg.includes('4001')) {
+          toast.error(t('txCancelled', lang)); return
+        }
+        // Decode NothingToWithdraw custom error selector 0x...
+        const hexMatch = msg.match(/0x([0-9a-fA-F]{8})/)
+        const selector = hexMatch?.[1]?.toLowerCase()
+        const known: Record<string, string> = {
+          '3ee5aeb5': 'Reentrancy detected',
+          '10dfc033': 'Wrong chain — switch to Arc',
+        }
+        const reason = (selector && known[selector]) ?? msg.split('\n')[0].slice(0, 120) ?? t('withdrawFailed', lang)
+        toast.error(reason, { description: t('withdrawFailed', lang) })
+      },
     })
   }
 

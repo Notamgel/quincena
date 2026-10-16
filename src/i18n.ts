@@ -58,6 +58,7 @@ const labels = {
   paid: { en: 'paid', es: 'pagado' },
   total: { en: 'total', es: 'total' },
   cancelled: { en: 'Cancelled', es: 'Cancelado' },
+  cancelledNoticePay: { en: 'Cancelled · notice pay claimable', es: 'Cancelado · preaviso disponible' },
   payeeList: { en: 'Payees', es: 'Beneficiarios' },
   schedule: { en: 'Schedule', es: 'Programación' },
   periodLengthLabel: { en: 'Period length', es: 'Duración del período' },

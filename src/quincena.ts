@@ -14,8 +14,7 @@ export const ARC_MAINNET_CHAIN_ID  = 5042
 /** Deployed contract addresses per chain. */
 export const QUINCENA_ADDRESSES: Record<number, `0x${string}`> = {
   [ARC_TESTNET_CHAIN_ID]: '0x23159fe3cfc953c9f4f57af3163176373a788858',
-  // TODO: replace with mainnet address after you deploy
-  [ARC_MAINNET_CHAIN_ID]:  '0x0000000000000000000000000000000000000000',
+  [ARC_MAINNET_CHAIN_ID]:  '0x153ace52a2cfcffad92421d365af8e31cf494e68',
 }
 
 /**

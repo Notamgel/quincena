@@ -8,6 +8,47 @@ import { buildTxExplorerUrl } from '@/onchain-facts'
 import type { Lang } from '../i18n'
 import { t } from '../i18n'
 
+// Map 4-byte custom error selectors → short human-readable messages.
+// Selector = first 4 bytes of keccak256("ErrorName(...)").
+const CUSTOM_ERRORS: Record<string, string> = {
+  '162b665e': 'Stream is cancelled — nothing left to claim',
+  '646cf558': 'Already claimed for these periods',
+  '969bf728': 'Nothing to claim yet',
+  '13c872ee': 'Stream not found',
+  '5f718125': 'Only the stream client can do this',
+  '10dfc033': 'Wrong chain — switch to Arc',
+  '54e37625': 'Stream already cancelled',
+  'f625d00e': 'No periods have unlocked yet',
+  '1f2a2005': 'Amount must be greater than zero',
+  '3ee5aeb5': 'Reentrancy detected',
+}
+
+function decodeRevertReason(err: Error): string {
+  const msg = err.message ?? ''
+  // wagmi/viem surfaces the 4-byte selector inside the message as hex
+  const hexMatch = msg.match(/0x([0-9a-fA-F]{8})/)
+  if (hexMatch) {
+    const selector = hexMatch[1].toLowerCase()
+    const known = CUSTOM_ERRORS[selector]
+    if (known) return known
+  }
+  // Also try to extract the raw selector bytes from the "execution reverted" data field
+  // which viem sometimes includes as "data":"0xXXXXXXXX"
+  const dataMatch = msg.match(/data['":\s]+0x([0-9a-fA-F]{8})/)
+  if (dataMatch) {
+    const selector = dataMatch[1].toLowerCase()
+    const known = CUSTOM_ERRORS[selector]
+    if (known) return known
+  }
+  // For user-rejected, surface a clean message
+  if (msg.includes('user rejected') || msg.includes('User rejected') || msg.includes('4001')) {
+    return ''  // caller shows txCancelled
+  }
+  // Extract the first sentence of the viem error (usually readable)
+  const firstLine = msg.split('\n')[0].replace(/^Error:\s*/i, '').slice(0, 120)
+  return firstLine || 'Transaction failed'
+}
+
 const glass = {
   card: {
     background: 'rgba(255,255,255,0.64)',
@@ -120,20 +161,24 @@ export function StreamCard({ streamId, stream, role, onRefresh, lang }: Props) {
   }, [cancelSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleClaim = () => {
-    if (isWrongChain) { switchChain({ chainId: ARC_TESTNET_CHAIN_ID }); return }
+    if (isWrongChain) { switchChain({ chainId: activeChainId }); return }
     if (!contractAddress) return
     writeClaim({
       address: contractAddress,
       abi: QUINCENA_ABI,
-      functionName: 'claim(uint256)',
+      functionName: 'claim',
       args: [streamId],
     }, {
-      onError: (e) => toast.error(e.message.includes('user rejected') ? t('txCancelled', lang) : t('claimFailed', lang)),
+      onError: (e) => {
+        const reason = decodeRevertReason(e)
+        if (!reason) { toast.error(t('txCancelled', lang)); return }
+        toast.error(reason, { description: t('claimFailed', lang) })
+      },
     })
   }
 
   const handleCancel = () => {
-    if (isWrongChain) { switchChain({ chainId: ARC_TESTNET_CHAIN_ID }); return }
+    if (isWrongChain) { switchChain({ chainId: activeChainId }); return }
     if (!contractAddress) return
     writeCancel({
       address: contractAddress,
@@ -141,7 +186,11 @@ export function StreamCard({ streamId, stream, role, onRefresh, lang }: Props) {
       functionName: 'cancel',
       args: [streamId],
     }, {
-      onError: (e) => toast.error(e.message.includes('user rejected') ? t('txCancelled', lang) : t('cancelFailed', lang)),
+      onError: (e) => {
+        const reason = decodeRevertReason(e)
+        if (!reason) { toast.error(t('txCancelled', lang)); return }
+        toast.error(reason, { description: t('cancelFailed', lang) })
+      },
     })
   }
 
@@ -152,7 +201,11 @@ export function StreamCard({ streamId, stream, role, onRefresh, lang }: Props) {
   const totalPaid = BigInt(stream.periodsClaimedCount) * stream.amountPerPeriod
   const totalValue = BigInt(stream.periods) * stream.amountPerPeriod
   const progress = stream.periods > 0 ? (stream.periodsClaimedCount / stream.periods) * 100 : 0
-  const isFinished = stream.periodsClaimedCount >= stream.periods || stream.cancelled
+  // A cancelled stream is only finished once all notice-period pay has been claimed.
+  // Use cancelledAtPeriod as the ceiling when cancelled; otherwise use total periods.
+  const effectivePeriods = stream.cancelled ? stream.cancelledAtPeriod : stream.periods
+  const isFinished = stream.periodsClaimedCount >= effectivePeriods
+  const cancelledWithPendingPay = stream.cancelled && claimableAmount > 0n
 
   const claimBusy = claimPending || claimConfirming
   const cancelBusy = cancelPending || cancelConfirming
@@ -172,8 +225,13 @@ export function StreamCard({ streamId, stream, role, onRefresh, lang }: Props) {
               #{streamId.toString()}
             </span>
             {stream.cancelled && (
-              <span className="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: 'rgba(186,43,76,0.10)', color: 'var(--danger)' }}>
-                {t('cancelled', lang)}
+              <span
+                className="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold"
+                style={cancelledWithPendingPay
+                  ? { background: 'rgba(255,205,131,0.22)', color: '#7a5400', border: '1px solid rgba(255,205,131,0.5)' }
+                  : { background: 'rgba(186,43,76,0.10)', color: 'var(--danger)' }}
+              >
+                {cancelledWithPendingPay ? t('cancelledNoticePay', lang) : t('cancelled', lang)}
               </span>
             )}
             {isFinished && !stream.cancelled && (
@@ -318,8 +376,8 @@ export function StreamCard({ streamId, stream, role, onRefresh, lang }: Props) {
             </div>
           )}
 
-          {/* Actions */}
-          {!stream.cancelled && (
+          {/* Actions — show Claim whenever there is claimable USDC, even on cancelled streams */}
+          {(claimableAmount > 0n || (!stream.cancelled && !isFinished)) && (
             <div className="flex gap-2 pt-1">
               <button
                 onClick={handleClaim}
@@ -335,7 +393,8 @@ export function StreamCard({ streamId, stream, role, onRefresh, lang }: Props) {
                   : t('nothingUnlocked', lang)}
               </button>
 
-              {role === 'client' && (
+              {/* Cancel only available on live (non-cancelled) streams */}
+              {role === 'client' && !stream.cancelled && (
                 <button
                   onClick={handleCancel}
                   disabled={cancelBusy || claimBusy}

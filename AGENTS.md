@@ -16,6 +16,7 @@ Quincena is a USDC payroll escrow app on Arc Testnet. Clients create recurring p
 |---|---|---|
 | Quincena v1 (pre-audit) | Arc Testnet | 0xfb57ed3d1b32345972295f7a837b4d122c9a5c41 |
 | Quincena v2 (post-audit fixes) | Arc Testnet | 0x23159fe3cfc953c9f4f57af3163176373a788858 |
+| Quincena v2 | Arc Mainnet | 0x153ace52a2cfcffad92421d365af8e31cf494e68 |
 
 ## Tech Stack
 
