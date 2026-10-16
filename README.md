@@ -1,5 +1,7 @@
 # Quincena — USDC Payroll Streams on Arc
 
+**Live app:** https://notamgel.github.io/quincena/ · **Arc mainnet contract:** [0x153ace52…94e68](https://explorer.arc.io/address/0x153ace52a2cfcffad92421d365af8e31cf494e68) · **Demo video:** https://youtu.be/ZTV0OKTTKFg
+
 > *Quincena* (keen-SEH-nah): Spanish for a two-week pay period. The standard cadence for
 > millions of freelancers and contractors across Latin America.
 
