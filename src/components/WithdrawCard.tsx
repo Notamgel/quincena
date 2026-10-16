@@ -3,7 +3,7 @@ import { Loader2, ExternalLink, ArrowDownToLine } from 'lucide-react'
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi'
 import { erc20Abi } from 'viem'
 import { toast } from 'sonner'
-import { QUINCENA_ADDRESS, QUINCENA_ABI, ARC_TESTNET_CHAIN_ID } from '../quincena'
+import { QUINCENA_ABI, ARC_TESTNET_CHAIN_ID, getQuincenaAddress, isSupportedChain } from '../quincena'
 import { getUsdc } from '@/onchain-facts'
 import { Amount, usdcDecimalsFor } from '@/onchain-money'
 import { buildTxExplorerUrl } from '@/onchain-facts'
@@ -24,10 +24,6 @@ const glass = {
   } as React.CSSProperties,
 }
 
-const usdcDecimals = usdcDecimalsFor(ARC_TESTNET_CHAIN_ID)
-const fmtUsdc = (raw: bigint) => Amount.fromRaw(raw, usdcDecimals).toFixed(6)
-const USDC_ADDRESS = getUsdc(ARC_TESTNET_CHAIN_ID)?.address as `0x${string}`
-
 interface Props {
   lang: Lang
 }
@@ -35,23 +31,29 @@ interface Props {
 export function WithdrawCard({ lang }: Props) {
   const { address, chainId } = useAccount()
   const { switchChain } = useSwitchChain()
-  const isWrongChain = chainId !== ARC_TESTNET_CHAIN_ID
+
+  const isWrongChain = !isSupportedChain(chainId)
+  const activeChainId = chainId ?? ARC_TESTNET_CHAIN_ID
+  const contractAddress = getQuincenaAddress(activeChainId)
+  const usdcDecimals = usdcDecimalsFor(activeChainId)
+  const usdcAddress = (getUsdc(activeChainId) ?? getUsdc(ARC_TESTNET_CHAIN_ID))!.address as `0x${string}`
+  const fmtUsdc = (raw: bigint) => Amount.fromRaw(raw, usdcDecimals).toFixed(6)
 
   const { data: pending, refetch } = useReadContract({
-    address: QUINCENA_ADDRESS,
+    address: contractAddress,
     abi: QUINCENA_ABI,
     functionName: 'pendingWithdrawal',
     args: [address!],
-    chainId: ARC_TESTNET_CHAIN_ID,
-    query: { enabled: !!address, refetchInterval: 15_000 },
+    chainId: activeChainId,
+    query: { enabled: !!address && !!contractAddress, refetchInterval: 15_000 },
   })
 
   const { data: usdcBalance, refetch: refetchBalance } = useReadContract({
-    address: USDC_ADDRESS,
+    address: usdcAddress,
     abi: erc20Abi,
     functionName: 'balanceOf',
     args: [address!],
-    chainId: ARC_TESTNET_CHAIN_ID,
+    chainId: activeChainId,
     query: { enabled: !!address },
   })
 
@@ -68,8 +70,9 @@ export function WithdrawCard({ lang }: Props) {
 
   const handleWithdraw = () => {
     if (isWrongChain) { switchChain({ chainId: ARC_TESTNET_CHAIN_ID }); return }
+    if (!contractAddress) return
     writeWithdraw({
-      address: QUINCENA_ADDRESS,
+      address: contractAddress,
       abi: QUINCENA_ABI,
       functionName: 'withdraw',
       args: [],
@@ -81,7 +84,7 @@ export function WithdrawCard({ lang }: Props) {
   const pendingRaw = (pending as bigint | undefined) ?? 0n
   const balanceRaw = (usdcBalance) ?? 0n
   const busy = isPending || isConfirming
-  const txUrl = hash ? buildTxExplorerUrl(ARC_TESTNET_CHAIN_ID, hash) : null
+  const txUrl = hash && chainId ? buildTxExplorerUrl(chainId, hash) : null
   const hasPending = pendingRaw > 0n
 
   if (!address) return null
@@ -126,7 +129,7 @@ export function WithdrawCard({ lang }: Props) {
       {/* CTA */}
       <button
         onClick={handleWithdraw}
-        disabled={busy || !hasPending}
+        disabled={busy || !hasPending || !contractAddress}
         className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold text-white transition-all hover:scale-[1.01] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
         style={{ background: hasPending ? 'var(--accent)' : 'rgba(18,45,69,0.2)' }}
       >

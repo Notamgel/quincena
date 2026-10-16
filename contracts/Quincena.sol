@@ -11,9 +11,12 @@ contract Quincena is ReentrancyGuard {
     IERC20 public constant USDC = IERC20(0x3600000000000000000000000000000000000000);
     uint16 private constant BPS_DENOMINATOR = 10_000;
     uint16 private constant MAX_PERIODS = 1_000;
-    /// @dev Arc Testnet chain ID — enforced at deploy time so stale bytecode cannot
-    ///      be re-deployed on a chain where 0x3600…0000 is not USDC.
+    /// @dev Allowed chain IDs: Arc Testnet (5042002) and Arc Mainnet (5042).
+    ///      On both chains USDC is the ERC-20 at 0x3600…0000.
+    ///      Reverts with WrongChain() on any other chain so stale bytecode
+    ///      cannot be re-deployed where that address is not USDC.
     uint256 private constant ARC_TESTNET_CHAIN_ID = 5042002;
+    uint256 private constant ARC_MAINNET_CHAIN_ID  = 5042;
 
     error WrongChain();
     error InvalidArrayLengths();
@@ -52,7 +55,9 @@ contract Quincena is ReentrancyGuard {
     mapping(address => uint256) public pendingWithdrawal;
 
     constructor() {
-        if (block.chainid != ARC_TESTNET_CHAIN_ID) revert WrongChain();
+        if (block.chainid != ARC_TESTNET_CHAIN_ID && block.chainid != ARC_MAINNET_CHAIN_ID) {
+            revert WrongChain();
+        }
     }
 
     event StreamCreated(

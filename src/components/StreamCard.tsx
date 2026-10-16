@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { ChevronDown, ChevronUp, Clock, Users, AlertCircle, Loader2, ExternalLink, Timer } from 'lucide-react'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain, useReadContract } from 'wagmi'
 import { toast } from 'sonner'
-import { QUINCENA_ADDRESS, QUINCENA_ABI, ARC_TESTNET_CHAIN_ID, type StreamData } from '../quincena'
+import { QUINCENA_ABI, ARC_TESTNET_CHAIN_ID, getQuincenaAddress, isSupportedChain, type StreamData } from '../quincena'
 import { Amount, usdcDecimalsFor } from '@/onchain-money'
 import { buildTxExplorerUrl } from '@/onchain-facts'
 import type { Lang } from '../i18n'
@@ -22,10 +22,8 @@ const glass = {
   } as React.CSSProperties,
 }
 
-const usdcDecimals = usdcDecimalsFor(ARC_TESTNET_CHAIN_ID)
-
-function fmtUsdc(raw: bigint, fixed = 6): string {
-  return Amount.fromRaw(raw, usdcDecimals).toFixed(fixed)
+function fmtUsdc(raw: bigint, decimals: number, fixed = 6): string {
+  return Amount.fromRaw(raw, decimals).toFixed(fixed)
 }
 
 function formatAddr(a: string) {
@@ -43,7 +41,6 @@ function periodLabel(secs: number, lang: Lang): string {
   return `${secs}s`
 }
 
-/** Countdown to the next unlock moment given a stream start time and period length. */
 function useCountdown(startTime: bigint, periodSeconds: number, periodsClaimedCount: number): string {
   const [label, setLabel] = useState('')
 
@@ -56,10 +53,7 @@ function useCountdown(startTime: bigint, periodSeconds: number, periodsClaimedCo
       const unlockAt = start + nextPeriod * periodSeconds
       const remaining = unlockAt - now
 
-      if (remaining <= 0) {
-        setLabel('now')
-        return
-      }
+      if (remaining <= 0) { setLabel('now'); return }
       if (elapsed < 0) { setLabel(''); return }
 
       const h = Math.floor(remaining / 3600)
@@ -90,15 +84,19 @@ export function StreamCard({ streamId, stream, role, onRefresh, lang }: Props) {
   const { chainId } = useAccount()
   const { switchChain } = useSwitchChain()
   const [expanded, setExpanded] = useState(false)
-  const isWrongChain = chainId !== ARC_TESTNET_CHAIN_ID
+
+  const isWrongChain = !isSupportedChain(chainId)
+  const activeChainId = chainId ?? ARC_TESTNET_CHAIN_ID
+  const contractAddress = getQuincenaAddress(activeChainId)
+  const usdcDecimals = usdcDecimalsFor(activeChainId)
 
   const { data: claimableData, refetch: refetchClaimable } = useReadContract({
-    address: QUINCENA_ADDRESS,
+    address: contractAddress,
     abi: QUINCENA_ABI,
     functionName: 'claimable',
     args: [streamId],
-    chainId: ARC_TESTNET_CHAIN_ID,
-    query: { refetchInterval: 15_000 },
+    chainId: activeChainId,
+    query: { enabled: !!contractAddress, refetchInterval: 15_000 },
   })
 
   const { writeContract: writeClaim, data: claimHash, isPending: claimPending } = useWriteContract()
@@ -123,8 +121,9 @@ export function StreamCard({ streamId, stream, role, onRefresh, lang }: Props) {
 
   const handleClaim = () => {
     if (isWrongChain) { switchChain({ chainId: ARC_TESTNET_CHAIN_ID }); return }
+    if (!contractAddress) return
     writeClaim({
-      address: QUINCENA_ADDRESS,
+      address: contractAddress,
       abi: QUINCENA_ABI,
       functionName: 'claim(uint256)',
       args: [streamId],
@@ -135,8 +134,9 @@ export function StreamCard({ streamId, stream, role, onRefresh, lang }: Props) {
 
   const handleCancel = () => {
     if (isWrongChain) { switchChain({ chainId: ARC_TESTNET_CHAIN_ID }); return }
+    if (!contractAddress) return
     writeCancel({
-      address: QUINCENA_ADDRESS,
+      address: contractAddress,
       abi: QUINCENA_ABI,
       functionName: 'cancel',
       args: [streamId],
@@ -157,10 +157,10 @@ export function StreamCard({ streamId, stream, role, onRefresh, lang }: Props) {
   const claimBusy = claimPending || claimConfirming
   const cancelBusy = cancelPending || cancelConfirming
   const anyTxHash = claimHash ?? cancelHash
-  const txUrl = anyTxHash ? buildTxExplorerUrl(ARC_TESTNET_CHAIN_ID, anyTxHash) : null
+  const txUrl = anyTxHash && chainId ? buildTxExplorerUrl(chainId, anyTxHash) : null
 
-  // Countdown to next unlock (only for payee view when stream is live)
   const countdown = useCountdown(stream.startTime, stream.periodSeconds, stream.periodsClaimedCount)
+  const fmt = (raw: bigint, fixed = 6) => fmtUsdc(raw, usdcDecimals, fixed)
 
   return (
     <div className="rounded-3xl p-5 transition-all" style={glass.card}>
@@ -207,7 +207,7 @@ export function StreamCard({ streamId, stream, role, onRefresh, lang }: Props) {
         <div className="rounded-2xl px-3 py-2.5" style={glass.inner}>
           <p className="text-xs mb-0.5" style={{ color: 'var(--subtle)' }}>{t('perPeriod', lang)}</p>
           <p className="display text-sm font-bold tabular-nums leading-none" style={{ color: 'var(--ink)' }}>
-            {fmtUsdc(stream.amountPerPeriod)}
+            {fmt(stream.amountPerPeriod)}
           </p>
         </div>
         <div className="rounded-2xl px-3 py-2.5" style={glass.inner}>
@@ -222,7 +222,7 @@ export function StreamCard({ streamId, stream, role, onRefresh, lang }: Props) {
             className="display text-sm font-bold tabular-nums leading-none"
             style={{ color: claimableAmount > 0n ? 'var(--success)' : 'var(--subtle)' }}
           >
-            {fmtUsdc(claimableAmount)}
+            {fmt(claimableAmount)}
           </p>
         </div>
       </div>
@@ -242,8 +242,8 @@ export function StreamCard({ streamId, stream, role, onRefresh, lang }: Props) {
         />
       </div>
       <div className="mt-1.5 flex justify-between text-xs tabular-nums" style={{ color: 'var(--subtle)' }}>
-        <span>{fmtUsdc(totalPaid)} {t('paid', lang)}</span>
-        <span>{fmtUsdc(totalValue)} {t('total', lang)}</span>
+        <span>{fmt(totalPaid)} {t('paid', lang)}</span>
+        <span>{fmt(totalValue)} {t('total', lang)}</span>
       </div>
 
       {/* Payee view: next unlock countdown */}
@@ -277,7 +277,7 @@ export function StreamCard({ streamId, stream, role, onRefresh, lang }: Props) {
                   <span className="text-xs tabular-nums font-semibold" style={{ color: 'var(--muted)' }}>
                     {(stream.bps[i] / 100).toFixed(2)}%
                     <span className="ml-1.5 font-normal" style={{ color: 'var(--subtle)' }}>
-                      ({fmtUsdc(stream.amountPerPeriod * BigInt(stream.bps[i]) / 10000n)}/period)
+                      ({fmt(stream.amountPerPeriod * BigInt(stream.bps[i]) / 10000n)}/period)
                     </span>
                   </span>
                 </div>
@@ -321,7 +321,6 @@ export function StreamCard({ streamId, stream, role, onRefresh, lang }: Props) {
           {/* Actions */}
           {!stream.cancelled && (
             <div className="flex gap-2 pt-1">
-              {/* Claim (anyone can trigger) */}
               <button
                 onClick={handleClaim}
                 disabled={claimBusy || cancelBusy || claimablePeriods === 0}

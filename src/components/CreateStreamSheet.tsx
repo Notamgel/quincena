@@ -4,7 +4,7 @@ import { X, Plus, Trash2, Loader2, ExternalLink, ChevronDown } from 'lucide-reac
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi'
 import { erc20Abi } from 'viem'
 import { toast } from 'sonner'
-import { QUINCENA_ADDRESS, QUINCENA_ABI, ARC_TESTNET_CHAIN_ID } from '../quincena'
+import { QUINCENA_ABI, ARC_TESTNET_CHAIN_ID, ARC_MAINNET_CHAIN_ID, getQuincenaAddress, isSupportedChain } from '../quincena'
 import { getUsdc } from '@/onchain-facts'
 import { parseAmount, Amount, usdcDecimalsFor } from '@/onchain-money'
 import { buildTxExplorerUrl } from '@/onchain-facts'
@@ -41,9 +41,6 @@ interface Props {
   lang: Lang
 }
 
-const USDC_ADDRESS = getUsdc(ARC_TESTNET_CHAIN_ID)?.address as `0x${string}`
-const usdcDecimals = usdcDecimalsFor(ARC_TESTNET_CHAIN_ID)
-
 // Period presets: [labelKey, seconds]
 const PERIOD_PRESETS: Array<{ key: 'period2min' | 'period1week' | 'period15days' | 'period30days'; secs: number }> = [
   { key: 'period2min', secs: 120 },
@@ -60,10 +57,6 @@ function pctToBps(pct: string): number {
 
 function totalBpsFromPayees(payees: Payee[]): number {
   return payees.reduce((s, p) => s + pctToBps(p.pct), 0)
-}
-
-function fmtUsdc6(raw: bigint): string {
-  return Amount.fromRaw(raw, usdcDecimals).toFixed(6)
 }
 
 export function CreateStreamSheet({ open, onClose, onCreated, lang }: Props) {
@@ -83,18 +76,32 @@ export function CreateStreamSheet({ open, onClose, onCreated, lang }: Props) {
   const { isLoading: approveConfirming } = useWaitForTransactionReceipt({ hash: approveHash })
   const { isLoading: createConfirming, isSuccess: createSuccess } = useWaitForTransactionReceipt({ hash: createHash })
 
-  const isWrongChain = chainId !== ARC_TESTNET_CHAIN_ID
+  // Resolve chain-specific values — fall back to testnet defaults so the form renders before connect
+  const activeChainId = chainId ?? ARC_TESTNET_CHAIN_ID
+  const contractAddress = getQuincenaAddress(activeChainId)
+  const usdcInfo = getUsdc(activeChainId) ?? getUsdc(ARC_TESTNET_CHAIN_ID)!
+  const usdcAddress = usdcInfo.address as `0x${string}`
+  const usdcDecimals = usdcDecimalsFor(activeChainId)
+
+  const isWrongChain = !isSupportedChain(chainId)
+  const isMainnetNotDeployed = chainId === ARC_MAINNET_CHAIN_ID && !contractAddress
+
   const totalBps = totalBpsFromPayees(payees)
   const bpsOk = totalBps === 10000
 
   const parsedAmount = amountPerPeriod && /^\d*\.?\d{0,6}$/.test(amountPerPeriod) && parseFloat(amountPerPeriod) > 0
-    ? (() => { try { return parseAmount(ARC_TESTNET_CHAIN_ID, amountPerPeriod) } catch { return null } })()
+    ? (() => { try { return parseAmount(activeChainId, amountPerPeriod) } catch { return null } })()
     : null
 
   const periodsNum = Math.max(0, parseInt(numPeriods) || 0)
   const totalRaw = parsedAmount ? parsedAmount.raw * BigInt(periodsNum) : 0n
 
+  const fmtUsdc6 = (raw: bigint) => Amount.fromRaw(raw, usdcDecimals).toFixed(6)
+
   const isValid =
+    !isWrongChain &&
+    !isMainnetNotDeployed &&
+    !!contractAddress &&
     payees.length >= 1 &&
     payees.length <= 5 &&
     payees.every(p => /^0x[0-9a-fA-F]{40}$/.test(p.address)) &&
@@ -118,23 +125,23 @@ export function CreateStreamSheet({ open, onClose, onCreated, lang }: Props) {
     })
   }
 
-  // Approve → then immediately submit createStream on confirmation
   const handleApprove = () => {
     if (isWrongChain) { switchChain({ chainId: ARC_TESTNET_CHAIN_ID }); return }
-    if (!isValid || !parsedAmount) return
+    if (!isValid || !parsedAmount || !contractAddress) return
     const capturedPayees = payees
     const capturedParsed = parsedAmount
     const capturedPeriodSecs = periodSecs
     const capturedPeriodsNum = periodsNum
     const capturedNoticePeriods = parseInt(noticePeriods) || 0
     const capturedMemo = memo
+    const capturedChainId = activeChainId
 
     setStep('approving')
     writeApprove({
-      address: USDC_ADDRESS,
+      address: usdcAddress,
       abi: erc20Abi,
       functionName: 'approve',
-      args: [QUINCENA_ADDRESS, totalRaw],
+      args: [contractAddress, totalRaw],
     }, {
       onError: (e) => {
         toast.error(e.message.includes('user rejected') ? t('txCancelled', lang) : 'Approval failed.')
@@ -145,7 +152,7 @@ export function CreateStreamSheet({ open, onClose, onCreated, lang }: Props) {
         const payeeAddrs = capturedPayees.map(p => p.address as `0x${string}`)
         const bpsArr = capturedPayees.map(p => pctToBps(p.pct))
         writeCreate({
-          address: QUINCENA_ADDRESS,
+          address: contractAddress,
           abi: QUINCENA_ABI,
           functionName: 'createStream',
           args: [payeeAddrs, bpsArr, capturedParsed.raw, capturedPeriodSecs, capturedPeriodsNum, capturedNoticePeriods, capturedMemo],
@@ -162,15 +169,16 @@ export function CreateStreamSheet({ open, onClose, onCreated, lang }: Props) {
         })
       },
     })
+    void capturedChainId // used by explorerUrl below
   }
 
   const busy = approvePending || approveConfirming || createPending || createConfirming
-  // createSuccess used to show explorer link even after onSuccess fires
   void createSuccess
-  const explorerUrl = createHash ? buildTxExplorerUrl(ARC_TESTNET_CHAIN_ID, createHash) : null
+  const explorerUrl = createHash && chainId ? buildTxExplorerUrl(chainId, createHash) : null
 
   const btnLabel = () => {
     if (isWrongChain) return t('switchNetwork', lang)
+    if (isMainnetNotDeployed) return 'Mainnet not yet deployed'
     if (step === 'approving' && (approvePending || approveConfirming)) return t('approving', lang)
     if (step === 'creating' && (createPending || createConfirming)) return t('creating', lang)
     if (step === 'done') return t('done', lang)
@@ -178,7 +186,6 @@ export function CreateStreamSheet({ open, onClose, onCreated, lang }: Props) {
     return `${t('approveCreate', lang)} — ${total} USDC`
   }
 
-  // Progress indicator for 2-step flow
   const stepNum = step === 'idle' ? 0 : step === 'approving' ? 1 : step === 'creating' ? 2 : 3
 
   return (
@@ -202,15 +209,11 @@ export function CreateStreamSheet({ open, onClose, onCreated, lang }: Props) {
             transition={spring}
             onClick={e => e.stopPropagation()}
           >
-            {/* Spectral strip */}
             <div className="h-1 flex-shrink-0" style={{ background: spectral }} />
-
-            {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
               <div className="h-1 w-10 rounded-full" style={{ background: 'rgba(18,45,69,0.12)' }} />
             </div>
 
-            {/* Header */}
             <div className="flex items-center justify-between px-5 pt-2 pb-4 flex-shrink-0">
               <div>
                 <h2 className="display text-lg font-bold" style={{ color: 'var(--ink)' }}>{t('newStream', lang)}</h2>
@@ -241,10 +244,16 @@ export function CreateStreamSheet({ open, onClose, onCreated, lang }: Props) {
               </button>
             </div>
 
-            {/* Scrollable body */}
+            {/* Mainnet-not-deployed banner */}
+            {isMainnetNotDeployed && (
+              <div className="mx-5 mb-4 rounded-2xl px-4 py-3 text-xs" style={{ background: 'rgba(255,205,131,0.18)', border: '1px solid rgba(255,205,131,0.40)', color: '#7a5400' }}>
+                Arc mainnet contract not yet deployed. Switch to Arc Testnet to try it, or deploy to mainnet and update the address.
+              </div>
+            )}
+
             <div className="flex-1 overflow-y-auto px-5 pb-8">
 
-              {/* --- Payees --- */}
+              {/* Payees */}
               <div className="mb-5">
                 <div className="mb-2 flex items-center justify-between">
                   <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
@@ -309,7 +318,7 @@ export function CreateStreamSheet({ open, onClose, onCreated, lang }: Props) {
                 )}
               </div>
 
-              {/* --- Amount per period --- */}
+              {/* Amount per period */}
               <div className="mb-5">
                 <label className="mb-2 block text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
                   {t('amountPerPeriod', lang)}
@@ -330,7 +339,7 @@ export function CreateStreamSheet({ open, onClose, onCreated, lang }: Props) {
                 </div>
               </div>
 
-              {/* --- Period presets --- */}
+              {/* Period presets */}
               <div className="mb-5">
                 <label className="mb-2 block text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
                   {t('periodLength', lang)}
@@ -353,7 +362,7 @@ export function CreateStreamSheet({ open, onClose, onCreated, lang }: Props) {
                 </div>
               </div>
 
-              {/* --- Number of periods + cancel notice --- */}
+              {/* Number of periods + cancel notice */}
               <div className="mb-5 grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-2 block text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
@@ -386,7 +395,7 @@ export function CreateStreamSheet({ open, onClose, onCreated, lang }: Props) {
                 {t('cancelNoticeHint', lang, { n: noticePeriods || '0' })}
               </p>
 
-              {/* --- Memo --- */}
+              {/* Memo */}
               <div className="mb-5">
                 <label className="mb-2 block text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
                   {t('memo', lang)}
@@ -400,7 +409,7 @@ export function CreateStreamSheet({ open, onClose, onCreated, lang }: Props) {
                 />
               </div>
 
-              {/* --- Summary --- */}
+              {/* Summary */}
               {isValid && (
                 <div className="mb-5 px-4 py-3 rounded-2xl" style={{ background: 'rgba(26,128,71,0.06)', border: '1px solid rgba(26,128,71,0.14)' }}>
                   <div className="flex items-center justify-between">
@@ -414,7 +423,7 @@ export function CreateStreamSheet({ open, onClose, onCreated, lang }: Props) {
                 </div>
               )}
 
-              {/* --- CTA --- */}
+              {/* CTA */}
               <button
                 disabled={!isValid || busy || step === 'done'}
                 onClick={handleApprove}
@@ -440,7 +449,6 @@ export function CreateStreamSheet({ open, onClose, onCreated, lang }: Props) {
             </div>
           </motion.section>
 
-          {/* Invisible expand hint */}
           <ChevronDown className="sr-only" />
         </motion.div>
       )}

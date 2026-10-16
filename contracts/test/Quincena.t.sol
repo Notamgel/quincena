@@ -1017,4 +1017,31 @@ contract QuincenaTest is Test {
         // And the attacker's USDC balance equals the claimed amount.
         assertEq(usdc.balanceOf(address(attacker)), amountPerPeriod, "D: attacker received funds once");
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Constructor chain guard — dual-chain allow-list tests
+    // ARC_TESTNET_CHAIN_ID = 5042002, ARC_MAINNET_CHAIN_ID = 5042
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @notice Deploying on Arc Testnet (5042002) must succeed.
+    function test_ArcTestnetAllowed() public {
+        vm.chainId(5042002);
+        Quincena q = new Quincena();
+        assertTrue(address(q) != address(0), "Arc Testnet: deploy should succeed and return non-zero address");
+    }
+
+    /// @notice Deploying on Arc Mainnet (5042) must succeed.
+    function test_ArcMainnetAllowed() public {
+        vm.chainId(5042);
+        Quincena q = new Quincena();
+        assertTrue(address(q) != address(0), "Arc Mainnet: deploy should succeed and return non-zero address");
+    }
+
+    /// @notice Deploying on a non-Arc chain (999) must revert with WrongChain.
+    ///         Uses chain 999 — distinct from chain 1 used by test_WrongChainReverts.
+    function test_DisallowedChainReverts() public {
+        vm.chainId(999);
+        vm.expectRevert(Quincena.WrongChain.selector);
+        new Quincena();
+    }
 }

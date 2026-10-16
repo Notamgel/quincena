@@ -6,7 +6,7 @@ import { TokenUSDC } from '@web3icons/react'
 import { CreateStreamSheet } from './components/CreateStreamSheet'
 import { StreamCard } from './components/StreamCard'
 import { WithdrawCard } from './components/WithdrawCard'
-import { QUINCENA_ADDRESS, QUINCENA_ABI, ARC_TESTNET_CHAIN_ID, type StreamData } from './quincena'
+import { QUINCENA_ABI, ARC_TESTNET_CHAIN_ID, getQuincenaAddress, type StreamData } from './quincena'
 import type { Lang } from './i18n'
 import { t } from './i18n'
 
@@ -14,26 +14,28 @@ const spectral = 'linear-gradient(90deg, #5fbeff, #af8ff4, #f05c6b, #ffcd83, #7e
 
 type Tab = 'client' | 'payee'
 
-function useStreamIds(address: `0x${string}` | undefined, fn: 'streamsOfClient' | 'streamsOfPayee') {
+function useStreamIds(address: `0x${string}` | undefined, fn: 'streamsOfClient' | 'streamsOfPayee', chainId: number) {
+  const contractAddress = getQuincenaAddress(chainId)
   const { data } = useReadContracts({
-    contracts: address
-      ? [{ address: QUINCENA_ADDRESS, abi: QUINCENA_ABI, functionName: fn, args: [address], chainId: ARC_TESTNET_CHAIN_ID }]
+    contracts: address && contractAddress
+      ? [{ address: contractAddress, abi: QUINCENA_ABI, functionName: fn, args: [address], chainId }]
       : [],
   })
   const ids = data?.[0]?.result as bigint[] | undefined
   return ids ?? []
 }
 
-function useStreams(ids: bigint[], refreshKey: number) {
+function useStreams(ids: bigint[], refreshKey: number, chainId: number) {
+  const contractAddress = getQuincenaAddress(chainId)
   const { data } = useReadContracts({
     contracts: ids.map(id => ({
-      address: QUINCENA_ADDRESS,
+      address: contractAddress!,
       abi: QUINCENA_ABI,
       functionName: 'getStream',
       args: [id],
-      chainId: ARC_TESTNET_CHAIN_ID,
+      chainId,
     })),
-    query: { enabled: ids.length > 0, gcTime: 0 },
+    query: { enabled: ids.length > 0 && !!contractAddress, gcTime: 0 },
   })
   void refreshKey
   return (data ?? []).map((r, i) => ({
@@ -43,7 +45,7 @@ function useStreams(ids: bigint[], refreshKey: number) {
 }
 
 export default function App() {
-  const { address, isConnected } = useAccount()
+  const { address, isConnected, chainId } = useAccount()
   const [tab, setTab] = useState<Tab>('client')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -51,10 +53,11 @@ export default function App() {
 
   const refresh = useCallback(() => setRefreshKey(k => k + 1), [])
 
-  const clientIds = useStreamIds(address, 'streamsOfClient')
-  const payeeIds = useStreamIds(address, 'streamsOfPayee')
-  const clientStreams = useStreams(clientIds, refreshKey)
-  const payeeStreams = useStreams(payeeIds, refreshKey)
+  const activeChainId = chainId ?? ARC_TESTNET_CHAIN_ID
+  const clientIds = useStreamIds(address, 'streamsOfClient', activeChainId)
+  const payeeIds = useStreamIds(address, 'streamsOfPayee', activeChainId)
+  const clientStreams = useStreams(clientIds, refreshKey, activeChainId)
+  const payeeStreams = useStreams(payeeIds, refreshKey, activeChainId)
 
   const visibleStreams = tab === 'client' ? clientStreams : payeeStreams
   const streamCount = visibleStreams.filter(s => s.stream).length
